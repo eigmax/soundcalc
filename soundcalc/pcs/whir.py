@@ -299,6 +299,25 @@ class WHIRConfig:
     # agree on the sampled OOD point.
     grinding_bits_ood: list[int]
 
+    # Per-iteration log-inverse-rates $\mu_i$, length $M+1$, INCLUDING the
+    # initial code's $\mu_0$ (which must equal `log_inv_rate`).
+    #
+    # Leave this `None` for the schedule the paper's fixed domain shift
+    # induces, $\mu_{i+1} = \mu_i + (k_i - 1)$, which is what the reference
+    # implementation does and what every config here used before this field
+    # existed.
+    #
+    # ### When to set it
+    #
+    # Set it when the implementation being modelled commits its folded
+    # codewords at rates of its own choosing rather than the induced ones.
+    # Ziren escalates by 3 bits per committed round from $\mu_0 = 2$, so with
+    # folds $[3, 6, 6]$ it commits at $[2, 5, 8, 8]$ where the induced
+    # schedule would be $[2, 4, 9, 14]$.  That is a different protocol with
+    # different query soundness per round, so it has to be stated rather than
+    # derived.
+    log_inv_rates: list[int] | None = None
+
 
 class WHIR(PCS):
     """
@@ -367,10 +386,27 @@ class WHIR(PCS):
         #   m_{i+1}     = m_i - k_i           (folding by $2^{k_i}$)
         #   \mu_{i+1}   = \mu_i + (k_i - 1)   (domain halves; degree drops by $2^{k_i}$)
         self.log_degrees = [config.log_degree]
-        self.log_inv_rates = [config.log_inv_rate]
         for k in self.folding_factors:
             self.log_degrees.append(self.log_degrees[-1] - k)
-            self.log_inv_rates.append(self.log_inv_rates[-1] + (k - 1))
+
+        if config.log_inv_rates is None:
+            self.log_inv_rates = [config.log_inv_rate]
+            for k in self.folding_factors:
+                self.log_inv_rates.append(self.log_inv_rates[-1] + (k - 1))
+        else:
+            self.log_inv_rates = list(config.log_inv_rates)
+            assert self.log_inv_rates[0] == config.log_inv_rate, (
+                f"log_inv_rates[0] ({self.log_inv_rates[0]}) must be the "
+                f"initial code's rate log_inv_rate ({config.log_inv_rate})"
+            )
+            assert all(
+                nxt >= cur
+                for cur, nxt in zip(self.log_inv_rates, self.log_inv_rates[1:])
+            ), (
+                "log_inv_rates must be non-decreasing: a folded codeword is "
+                "never committed at a HIGHER rate than its parent, got "
+                f"{self.log_inv_rates}"
+            )
 
         # Domain validity check
 

@@ -8,7 +8,6 @@ from soundcalc.common.fields import FieldParams
 from soundcalc.common.utils import get_bits_of_security_from_error
 from soundcalc.lookups.logup import LogUp
 from soundcalc.pcs.pcs import PCS
-from soundcalc.pcs.fri import FRI
 from soundcalc.proxgaps.proxgaps_regime import ProximityGapsRegime
 from soundcalc.proxgaps.unique_decoding import UniqueDecodingRegime
 
@@ -24,10 +23,13 @@ def sumcheck_size_bits(
 @dataclass(frozen=True)
 class JaggedConfig:
     """
-    Configuration for Jagged PCS with FRI (Basefold) as its inner dense PCS.
+    Configuration for Jagged PCS over a dense PCS.
+
+    The dense polynomial can be committed with any scheme implementing `PCS`:
+    SP1 uses FRI (Basefold), Ziren uses WHIR.
     """
     # The configuration for the dense PCS
-    dense_pcs: FRI
+    dense_pcs: PCS
 
     # The maximum height of the trace.
     trace_length: int
@@ -54,18 +56,28 @@ class JaggedPCS(PCS):
         bits["reduce to dense PCS"] = get_bits_of_security_from_error(self._get_reduction_error())
         return bits
 
+    def _log_dense_trace(self) -> int:
+        """
+        Number of variables the jagged reduction sumchecks run over: the dense
+        polynomial's own variables plus the ones the batch adds.
+        """
+        return (
+            ceil(log2(self.dense_pcs.get_trace_length()))
+            + ceil(log2(self.dense_pcs.batch_size))
+        )
+
     def _get_reduction_error(self) -> float:
         """
         Returns the error from the zerocheck evaluation claims to the dense PCS.
         """
-        log_trace = ceil(log2(self.dense_pcs.trace_length)) + ceil(log2(self.dense_pcs.batch_size))
+        log_trace = self._log_dense_trace()
         epsilon_RLC = ceil(log2(self.trace_width)) / self.dense_pcs.field.F
         epsilon_jagged_sumcheck = (2 * log_trace) / self.dense_pcs.field.F
         epsilon_jagged_evaluation_sumcheck = (2 * (2 * log_trace + 2)) / self.dense_pcs.field.F
         return epsilon_RLC + epsilon_jagged_sumcheck + epsilon_jagged_evaluation_sumcheck
 
     def _reduction_proof_size_bits(self) -> int:
-        log_trace = ceil(log2(self.dense_pcs.trace_length)) + ceil(log2(self.dense_pcs.batch_size))
+        log_trace = self._log_dense_trace()
         field_bits = self.dense_pcs.field.extension_field_element_size_bits()
 
         jagged_sumcheck_size = sumcheck_size_bits(
@@ -101,40 +113,20 @@ class JaggedPCS(PCS):
     def get_parameter_summary(self) -> str:
         """
         Returns a description of the parameters of the PCS.
+
+        The dense scheme describes its own parameters; jagged adds only the
+        two the reduction layer owns (the jagged trace it reduces FROM).
         """
-        lines = []
-        lines.append("")
-        lines.append("```")
-
-        params = {
-            "hash_size_bits": self.dense_pcs.hash_size_bits,
-            "rho": self.dense_pcs.rho,
-            "k = -log2(rho)": self.dense_pcs.k,
-            "dense_length": self.dense_pcs.trace_length,
-            "trace_length": self.trace_length,
-            "h = log2(dense_length)": self.dense_pcs.h,
-            "domain_size D = dense_length / rho": self.dense_pcs.D,
-            "dense_batch_size": self.dense_pcs.batch_size,
-            "trace_width": self.trace_width,
-            "power_batching": self.dense_pcs.power_batching,
-            "multilinear_batching": self.dense_pcs.multilinear_batching,
-            "num_queries": self.dense_pcs.num_queries,
-            "gap_to_radius": self.dense_pcs.gap_to_radius,
-            "FRI_folding_factors": self.dense_pcs.FRI_folding_factors,
-            "FRI_early_stop_degree": self.dense_pcs.FRI_early_stop_degree,
-            "FRI_rounds_n": self.dense_pcs.FRI_rounds_n,
-            "grinding_query_phase": self.dense_pcs.grinding_query_phase,
-            "grinding_commit_phase": self.dense_pcs.grinding_commit_phase,
-            "field": self.dense_pcs.field.to_string(),
-            "field_extension_degree": self.dense_pcs.field_extension_degree,
-        }
-
-        key_width = max(len(k) for k in params.keys())
-        for k, v in params.items():
-            lines.append(f"  {k:<{key_width}} : {v}")
-
-        lines.append("```")
-        return "\n".join(lines)
+        lines = self.dense_pcs.get_parameter_summary().split("\n")
+        jagged_rows = [
+            f"  jagged_trace_length : {self.trace_length}",
+            f"  jagged_trace_width  : {self.trace_width}",
+        ]
+        # Insert before the closing fence of the dense scheme's block.
+        for i in range(len(lines) - 1, -1, -1):
+            if lines[i].strip() == "```":
+                return "\n".join(lines[:i] + jagged_rows + lines[i:])
+        return "\n".join(lines + jagged_rows)
 
     def get_report_parameter_lines(self) -> list[str]:
         return self.dense_pcs.get_report_parameter_lines()
@@ -144,7 +136,7 @@ class JaggedPCS(PCS):
 class JaggedCircuitConfig:
     """Configuration for a JaggedCircuit."""
     name: str
-    dense_pcs: FRI
+    dense_pcs: PCS
     field: FieldParams
     trace_length: int
     trace_width: int
@@ -155,11 +147,12 @@ class JaggedCircuitConfig:
 
 class JaggedCircuit(Circuit):
     """
-    Circuit using the Jagged proof system over FRI.
+    Circuit using the Jagged proof system over a dense PCS.
 
-    Jagged adds a sumcheck-based reduction layer on top of a dense FRI PCS,
-    plus a multilinear zerocheck for constraint satisfaction.
-    Used by SP1.
+    Jagged adds a sumcheck-based reduction layer on top of a dense PCS, plus a
+    multilinear zerocheck for constraint satisfaction.  The reduction analysis
+    is independent of which scheme commits the dense polynomial: SP1 uses FRI
+    (Basefold), Ziren uses WHIR.
     """
 
     def __init__(self, config: JaggedCircuitConfig):
@@ -216,27 +209,17 @@ class JaggedCircuit(Circuit):
     def get_report_parameter_lines(self) -> list[str]:
         """Returns markdown-formatted parameter lines for reports."""
         dense = self._jagged_pcs.dense_pcs
-        batching = "Powers" if dense.power_batching else "Affine"
+        # The dense scheme reports its own parameters — rate, batching, and
+        # FRI rounds / folding factors or WHIR iterations / OOD samples.
+        # Jagged adds only the trace the reduction layer reduces FROM.
         lines = [
             f"- Proof system: {self.proof_system_name}",
             f"- PCS: {dense.label}",
-            f"- Hash size (bits): {dense.hash_size_bits}",
-            f"- Number of queries: {dense.num_queries}",
-            f"- Grinding query phase (bits): {dense.grinding_query_phase}",
         ]
-        if dense.grinding_commit_phase > 0:
-            lines.append(f"- Grinding commit phase (bits): {dense.grinding_commit_phase}")
+        lines.extend(dense.get_report_parameter_lines())
         lines.extend([
-            f"- Field: {dense.field.to_string()}",
-            f"- Rate (ρ): {dense.rho}",
-            f"- Dense trace length: $2^{{{dense.h}}}$",
-            f"- Trace length: {self._jagged_pcs.trace_length}",
-            f"- Trace width: {self._jagged_pcs.trace_width}",
-            f"- FRI rounds: {dense.FRI_rounds_n}",
-            f"- FRI folding factors: {dense.FRI_folding_factors}",
-            f"- FRI early stop degree: {dense.FRI_early_stop_degree}",
-            f"- Dense batch size: {dense.batch_size}",
-            f"- Batching: {batching}",
+            f"- Jagged trace length: {self._jagged_pcs.trace_length}",
+            f"- Jagged trace width: {self._jagged_pcs.trace_width}",
         ])
         for lookup in self._lookups:
             lines.append(f"- Lookup (logup): {lookup.get_name()}")

@@ -28,16 +28,17 @@ How to read this report:
 - Hash size (bits): 248
 - Number of queries: 261
 - Grinding query phase (bits): 20
+- Grinding batching phase (bits): 10
 - Field: KoalaBear⁵
 - Rate (ρ): 0.5
-- Dense trace length: $2^{21}$
-- Trace length: 4194304
-- Trace width: 31209
+- Trace length (H): $2^{21}$
 - FRI rounds: 21
 - FRI folding factors: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
 - FRI early stop degree: 2
-- Dense batch size: 62928
+- Batch size: 62928
 - Batching: Powers
+- Jagged trace length: 4194304
+- Jagged trace width: 31209
 - Lookup (logup): lookup
 
 **Proof Size:** 311725 KiB (expected) / 312976 KiB (worst case)
@@ -55,16 +56,17 @@ How to read this report:
 - Hash size (bits): 248
 - Number of queries: 160
 - Grinding query phase (bits): 20
+- Grinding batching phase (bits): 10
 - Field: KoalaBear⁵
 - Rate (ρ): 0.25
-- Dense trace length: $2^{20}$
-- Trace length: 2097152
-- Trace width: 326
+- Trace length (H): $2^{20}$
 - FRI rounds: 20
 - FRI folding factors: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
 - FRI early stop degree: 4
-- Dense batch size: 128
+- Batch size: 128
 - Batching: Powers
+- Jagged trace length: 2097152
+- Jagged trace width: 326
 - Lookup (logup): lookup
 
 **Proof Size:** 1022 KiB (expected) / 1736 KiB (worst case)
@@ -82,16 +84,17 @@ How to read this report:
 - Hash size (bits): 248
 - Number of queries: 131
 - Grinding query phase (bits): 20
+- Grinding batching phase (bits): 10
 - Field: KoalaBear⁵
 - Rate (ρ): 0.125
-- Dense trace length: $2^{19}$
-- Trace length: 1048576
-- Trace width: 326
+- Trace length (H): $2^{19}$
 - FRI rounds: 20
 - FRI folding factors: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
 - FRI early stop degree: 4
-- Dense batch size: 128
+- Batch size: 128
 - Batching: Powers
+- Jagged trace length: 1048576
+- Jagged trace width: 326
 - Lookup (logup): lookup
 
 **Proof Size:** 856 KiB (expected) / 1422 KiB (worst case)

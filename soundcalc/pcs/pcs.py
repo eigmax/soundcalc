@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+from soundcalc.common.fields import FieldParams
 from soundcalc.common.utils import apply_grinding
 from soundcalc.proxgaps.proxgaps_regime import ProximityGapsRegime
 
@@ -14,6 +15,10 @@ class PCS(ABC):
     # Human-readable label for this PCS type (e.g. "FRI", "WHIR").
     # Subclasses must set this.
     label: str
+
+    # The field the scheme works over. Subclasses must set this in `__init__`;
+    # composite schemes (e.g. Jagged) read it from the PCS they wrap.
+    field: FieldParams
 
     # Batching parameters used by `_get_batching_error`.
     # Subclasses must set these in `__init__` (except `multilinear_batching`,

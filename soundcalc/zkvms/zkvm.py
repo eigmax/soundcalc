@@ -16,6 +16,7 @@ from soundcalc.circuits.swirl import (
 from soundcalc.common.fields import FieldParams, parse_field
 from soundcalc.lookups.logup import LogUp, LogUpConfig, LogUpType
 from soundcalc.pcs.fri import FRI, FRIConfig
+from soundcalc.pcs.pcs import PCS
 from soundcalc.pcs.stir import STIR, STIRConfig
 from soundcalc.pcs.whir import WHIR, WHIRConfig
 
@@ -186,15 +187,45 @@ class zkVM:
         ))
 
     @classmethod
-    def _build_jagged_circuit_from_section(cls, config: dict, section: dict) -> JaggedCircuit:
-        field = cls._field(config, section)
-        # Jagged currently only supports the unique-decoding regime.
-        explicit_regime = section.get("explicit_regime")
-        if explicit_regime is not None and explicit_regime != "unique":
+    def _build_dense_pcs_from_section(
+        cls, config: dict, section: dict, field: FieldParams
+    ) -> PCS:
+        """
+        Builds the dense PCS a JAGGED section commits its dense polynomial with.
+
+        `dense_pcs = "fri"` (the default) reads the FRI keys; `dense_pcs =
+        "whir"` reads the same keys the WHIR protocol family uses, with the
+        dense polynomial's `log_degree` as the number of variables.  The
+        jagged reduction above it is identical either way.
+        """
+        dense_pcs_name = section.get("dense_pcs", "fri").lower()
+
+        if dense_pcs_name == "whir":
+            return WHIR(WHIRConfig(
+                hash_size_bits=cls._hash_size_bits(config, section),
+                log_inv_rate=section["log_inv_rate"],
+                num_iterations=section["num_iterations"],
+                folding_factors=section["folding_factors"],
+                log_degree=section["log_degree"],
+                field=field,
+                batch_size=section["dense_batch"],
+                power_batching=section["power_batching"],
+                grinding_batching_phase=section.get("grinding_batching_phase", 0),
+                constraint_degree=section["constraint_degree"],
+                log_inv_rates=section.get("whir_log_inv_rates"),
+                num_queries=section["num_queries"],
+                grinding_bits_queries=section["grinding_bits_queries"],
+                grinding_bits_folding=section["grinding_bits_folding"],
+                num_ood_samples=section["num_ood_samples"],
+                grinding_bits_ood=section["grinding_bits_ood"],
+            ))
+
+        if dense_pcs_name != "fri":
             raise ValueError(
-                f"Jagged only supports explicit_regime=\"unique\", got {explicit_regime!r}"
+                f'dense_pcs must be "fri" or "whir", got {dense_pcs_name!r}'
             )
-        dense_pcs = FRI(FRIConfig(
+
+        return FRI(FRIConfig(
             hash_size_bits=cls._hash_size_bits(config, section),
             rho=section["rho"],
             gap_to_radius=section.get("gap_to_radius"),
@@ -209,6 +240,17 @@ class zkVM:
             grinding_batching_phase=section.get("grinding_batching_phase", 0),
             grinding_query_phase=section.get("grinding_query_phase", 0),
         ))
+
+    @classmethod
+    def _build_jagged_circuit_from_section(cls, config: dict, section: dict) -> JaggedCircuit:
+        field = cls._field(config, section)
+        # Jagged currently only supports the unique-decoding regime.
+        explicit_regime = section.get("explicit_regime")
+        if explicit_regime is not None and explicit_regime != "unique":
+            raise ValueError(
+                f"Jagged only supports explicit_regime=\"unique\", got {explicit_regime!r}"
+            )
+        dense_pcs = cls._build_dense_pcs_from_section(config, section, field)
         lookups = _parse_lookups_from_toml(section, field)
         return JaggedCircuit(JaggedCircuitConfig(
             name=section["name"],
