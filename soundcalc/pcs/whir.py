@@ -58,6 +58,7 @@ class WHIRConfig:
     # This parameter sets only the initial rate ρ.
     log_inv_rate: int
 
+
     # The total number of WHIR iterations, denoted by $M$ in the paper.
     #
     # This parameter dictates how many reduction steps are performed to reduce
@@ -299,6 +300,16 @@ class WHIRConfig:
     # agree on the sampled OOD point.
     grinding_bits_ood: list[int]
 
+    # OPTIONAL explicit per-round rate schedule $[\mu_0, ..., \mu_n]$, one entry
+    # per committed round plus the initial one.
+    #
+    # WHIR's own recurrence is $\mu_{i+1} = \mu_i + (k_i - 1)$: the domain is
+    # kept and the degree drops by $2^{k_i}$.  An implementation is free to
+    # commit each round at a different rate than that -- Ziren, for instance,
+    # re-commits at $\mu_{i+1} = 2 + 3(i+1)$ -- and the query phase must then be
+    # analysed at the rates the prover actually used.  Leave it unset for the
+    # standard recurrence.
+    log_inv_rates: list[int] | None = None
 
 class WHIR(PCS):
     """
@@ -371,6 +382,20 @@ class WHIR(PCS):
         for k in self.folding_factors:
             self.log_degrees.append(self.log_degrees[-1] - k)
             self.log_inv_rates.append(self.log_inv_rates[-1] + (k - 1))
+
+        # An implementation may commit each round at its own rate instead of the
+        # recurrence above; the query phase is then analysed at those rates.
+        if config.log_inv_rates is not None:
+            assert len(config.log_inv_rates) == len(self.log_inv_rates), (
+                f"log_inv_rates must have {len(self.log_inv_rates)} entries "
+                f"(one per round plus the initial rate), got {len(config.log_inv_rates)}"
+            )
+            assert config.log_inv_rates[0] == config.log_inv_rate, (
+                "log_inv_rates[0] must equal log_inv_rate "
+                f"({config.log_inv_rates[0]} != {config.log_inv_rate})"
+            )
+            assert all(r > 0 for r in config.log_inv_rates), "every rate must be > 0"
+            self.log_inv_rates = list(config.log_inv_rates)
 
         # Domain validity check
 

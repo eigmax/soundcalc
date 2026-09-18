@@ -24,10 +24,10 @@ def sumcheck_size_bits(
 @dataclass(frozen=True)
 class JaggedConfig:
     """
-    Configuration for Jagged PCS with FRI (Basefold) as its inner dense PCS.
+    Configuration for Jagged PCS over a dense PCS (FRI/Basefold or WHIR).
     """
     # The configuration for the dense PCS
-    dense_pcs: FRI
+    dense_pcs: PCS
 
     # The maximum height of the trace.
     trace_length: int
@@ -58,14 +58,22 @@ class JaggedPCS(PCS):
         """
         Returns the error from the zerocheck evaluation claims to the dense PCS.
         """
-        log_trace = ceil(log2(self.dense_pcs.trace_length)) + ceil(log2(self.dense_pcs.batch_size))
+        log_trace = self._log_dense_trace()
         epsilon_RLC = ceil(log2(self.trace_width)) / self.dense_pcs.field.F
         epsilon_jagged_sumcheck = (2 * log_trace) / self.dense_pcs.field.F
         epsilon_jagged_evaluation_sumcheck = (2 * (2 * log_trace + 2)) / self.dense_pcs.field.F
         return epsilon_RLC + epsilon_jagged_sumcheck + epsilon_jagged_evaluation_sumcheck
 
+    def _log_dense_trace(self) -> int:
+        """
+        Number of variables the jagged reduction runs over: the dense trace plus
+        the batch it is committed in.  Read through the PCS getters so the dense
+        scheme can be FRI or WHIR.
+        """
+        return ceil(log2(self.dense_pcs.get_trace_length())) + ceil(log2(self.dense_pcs.batch_size))
+
     def _reduction_proof_size_bits(self) -> int:
-        log_trace = ceil(log2(self.dense_pcs.trace_length)) + ceil(log2(self.dense_pcs.batch_size))
+        log_trace = self._log_dense_trace()
         field_bits = self.dense_pcs.field.extension_field_element_size_bits()
 
         jagged_sumcheck_size = sumcheck_size_bits(
@@ -102,6 +110,9 @@ class JaggedPCS(PCS):
         """
         Returns a description of the parameters of the PCS.
         """
+        if not isinstance(self.dense_pcs, FRI):
+            return self._non_fri_parameter_summary()
+
         lines = []
         lines.append("")
         lines.append("```")
@@ -136,6 +147,28 @@ class JaggedPCS(PCS):
         lines.append("```")
         return "\n".join(lines)
 
+    def _non_fri_parameter_summary(self) -> str:
+        """
+        The jagged layer's own parameters, followed by the dense PCS's summary.
+        FRI and WHIR do not share a parameter set, so a dense scheme other than
+        FRI describes itself.
+        """
+        dense_summary = self.dense_pcs.get_parameter_summary().split("\n")
+
+        jagged_params = {
+            "dense_pcs": self.dense_pcs.label,
+            "trace_length": self.trace_length,
+            "trace_width": self.trace_width,
+        }
+        key_width = max(len(k) for k in jagged_params.keys())
+        jagged_lines = [f"  {k:<{key_width}} : {v}" for k, v in jagged_params.items()]
+
+        # Insert the jagged keys at the top of the dense PCS's code block.
+        for i, line in enumerate(dense_summary):
+            if line.strip() == "```":
+                return "\n".join(dense_summary[:i + 1] + jagged_lines + dense_summary[i + 1:])
+        return "\n".join(dense_summary + jagged_lines)
+
     def get_report_parameter_lines(self) -> list[str]:
         return self.dense_pcs.get_report_parameter_lines()
 
@@ -144,7 +177,7 @@ class JaggedPCS(PCS):
 class JaggedCircuitConfig:
     """Configuration for a JaggedCircuit."""
     name: str
-    dense_pcs: FRI
+    dense_pcs: PCS
     field: FieldParams
     trace_length: int
     trace_width: int
@@ -155,11 +188,12 @@ class JaggedCircuitConfig:
 
 class JaggedCircuit(Circuit):
     """
-    Circuit using the Jagged proof system over FRI.
+    Circuit using the Jagged proof system over a dense PCS.
 
-    Jagged adds a sumcheck-based reduction layer on top of a dense FRI PCS,
-    plus a multilinear zerocheck for constraint satisfaction.
-    Used by SP1.
+    Jagged adds a sumcheck-based reduction layer on top of a dense PCS, plus a
+    multilinear zerocheck for constraint satisfaction.  The dense scheme is FRI
+    (Basefold) for SP1 and WHIR for Ziren; the reduction analysis itself is the
+    same either way and is only supported in the unique-decoding regime.
     """
 
     def __init__(self, config: JaggedCircuitConfig):
@@ -216,6 +250,19 @@ class JaggedCircuit(Circuit):
     def get_report_parameter_lines(self) -> list[str]:
         """Returns markdown-formatted parameter lines for reports."""
         dense = self._jagged_pcs.dense_pcs
+        if not isinstance(dense, FRI):
+            # FRI and WHIR do not share a parameter set (rates per round, early
+            # stop degree, ...), so a dense scheme other than FRI reports its own.
+            lines = [
+                f"- Proof system: {self.proof_system_name} over {dense.label}",
+                f"- Trace length: {self._jagged_pcs.trace_length}",
+                f"- Trace width: {self._jagged_pcs.trace_width}",
+            ]
+            lines.extend(dense.get_report_parameter_lines())
+            for lookup in self._lookups:
+                lines.append(f"- Lookup (logup): {lookup.get_name()}")
+            return lines
+
         batching = "Powers" if dense.power_batching else "Affine"
         lines = [
             f"- Proof system: {self.proof_system_name}",
