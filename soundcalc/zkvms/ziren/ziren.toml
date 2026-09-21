@@ -146,11 +146,13 @@ multilinear_fingerprint = true
 # Batching: BaseFold draws ceil(log2 t) independent coordinates after a 16-bit
 # grind (BATCH_GRINDING_BITS) and takes the multilinear (Lagrange) combination
 # of the stripe claims at that point, so `multilinear_batching` with
-# independent coefficients is the law.  The wrap proves one fixed program, so
-# its geometry is a constant of the revision; the value here is the ceiling
-# every chip at the largest band gives, (254 + 163) x 2^20 / 2^21 rounded to
-# 8 per round = 128 + 88 = 216, which overstates t and so understates the
-# batching term.
+# independent coefficients is the law.  The wrap proves ONE program, the
+# verifier of the shrink proof at the frozen shrink shape, so its geometry is
+# a constant of the revision: rows padded to multiples of 32, preprocessed
+# 15,764,640 cells -> 8 stripes, main 20,611,344 cells -> 16 (a count above 4
+# rounds up to a multiple of 8), t = 8 + 16 = 24.  Pinned by
+# `wrap_committed_stripes_are_pinned` (zkm-prover), which fails when the wrap
+# program moves without this file.
 # The LogUp-GKR grind is performed on this ring as on the inner ones: the
 # outer challenger grinds and checks the 16-bit witness.
 [[circuits]]
@@ -163,7 +165,7 @@ rho = 0.125
 trace_length = 1048576 # 2^20
 trace_columns = 254
 dense_length = 2097152 # 2^21
-dense_batch = 216
+dense_batch = 24
 num_constraints = 262
 air_max_degree = 9
 opening_points = 1

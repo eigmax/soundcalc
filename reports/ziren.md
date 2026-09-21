@@ -11,7 +11,7 @@ How to read this report:
 | Metric | Value | Relevant circuit | Notes |
 | --- | --- | --- | --- |
 | Final bits of security | **94 bits** | [core](#core) | Regime: UDR |
-| Final proof size (worst case) | **1237 KiB** | [wrap](#wrap) | |
+| Final proof size (worst case) | **963 KiB** | [wrap](#wrap) | |
 
 ## Circuits
 
@@ -85,11 +85,11 @@ How to read this report:
 - FRI rounds: 21
 - FRI folding factors: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
 - FRI early stop degree: 8
-- Dense batch size: 216
+- Dense batch size: 24
 - Batching: Affine
 - Lookup (logup): logup-gkr
 
-**Proof Size:** 807 KiB (expected) / 1237 KiB (worst case)
+**Proof Size:** 534 KiB (expected) / 963 KiB (worst case)
 
 | regime | total | logup-gkr | batching | commit round 1 | commit round 10 | commit round 11 | commit round 12 | commit round 13 | commit round 14 | commit round 15 | commit round 16 | commit round 17 | commit round 18 | commit round 19 | commit round 2 | commit round 20 | commit round 21 | commit round 3 | commit round 4 | commit round 5 | commit round 6 | commit round 7 | commit round 8 | commit round 9 | query phase | reduce to dense PCS | zerocheck |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
