@@ -5,6 +5,7 @@ toml format changes, newest-first.
 ### 2026-09-18 — Jagged over WHIR
 - `[[circuits]]` sections with `protocol_family = "JAGGED"` accept `dense_pcs = "whir"`; the dense PCS under the jagged reduction was previously always FRI. `dense_pcs` defaults to `"fri"`, so existing configs are unchanged. A WHIR dense section takes the usual WHIR keys (`log_inv_rate`, `num_iterations`, `folding_factors`, `log_degree`, `constraint_degree`, `num_queries`, `grinding_bits_*`, `num_ood_samples`) with the batch size read from `dense_batch`.
 - optional `whir_log_inv_rates`: the explicit per-round rate schedule, for implementations that re-commit each round at their own rate instead of WHIR's `mu_{i+1} = mu_i + (k_i - 1)` recurrence. Unset keeps the recurrence.
+- a WHIR dense section rejects `multilinear_batching = true`: WHIR batches with the powers of one challenge (`power_batching = true`) or with independent coefficients, and the key would otherwise be read as accepted while modelling neither. Every round of an explicit `whir_log_inv_rates` schedule, and the final domain, is checked against the field's two-adicity, not only round 0.
 
 ### 2026-07-23 — SWIRL
 - unified SWIRL circuit loading on the OpenVM-style keys; in SWIRL `[[circuits]]` sections: renamed `log_inv_rate` → `log_blowup`, `num_queries` → `whir_num_queries`, `trace_columns` → `num_trace_columns`, `grinding_batching_phase` → `whir_mu_pow_bits`, `swirl_folding_pow_bits` → `whir_folding_pow_bits`

@@ -421,6 +421,23 @@ class WHIR(PCS):
             f"  - Required 2-adicity: {required_two_adicity} (Domain / 2^k_0)"
         )
 
+        # The same requirement holds at every later round: round i re-commits
+        # 2^{log_degrees[i]} coefficients at rate 2^{-log_inv_rates[i]} and
+        # folds by k_i, so its FFT domain is |L_i| / 2^{k_i}.  With the
+        # recurrence the initial check implies these; an explicit
+        # `log_inv_rates` schedule can raise a later rate past the field, so
+        # each round is checked on its own.  The final round has no fold: its
+        # polynomial is sent in the clear over the full domain |L_M|.
+        for i in range(1, self.num_iterations + 1):
+            k_i = self.folding_factors[i] if i < self.num_iterations else 0
+            required_two_adicity = self.log_degrees[i] + self.log_inv_rates[i] - k_i
+            assert required_two_adicity <= self.field.two_adicity, (
+                f"Field {self.field.name} 2-adicity ({self.field.two_adicity}) is too low at round {i}.\n"
+                f"  - Logical Domain Size: 2^{self.log_degrees[i] + self.log_inv_rates[i]}\n"
+                f"  - Folding Factor (k_{i}): {k_i}\n"
+                f"  - Required 2-adicity: {required_two_adicity} (Domain / 2^k_{i})"
+            )
+
         # Array length consistency checks
 
         # The Main Loop (Construction 5.1) runs for i = 1 to M-1.

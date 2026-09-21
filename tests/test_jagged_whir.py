@@ -61,3 +61,42 @@ def test_whir_rate_schedule_can_be_given_explicitly():
     """Ziren re-commits round r at 2 + 3(r+1) instead."""
     whir = WHIR(_whir_config(log_inv_rates=[2, 5, 8, 8]))
     assert whir.log_inv_rates == [2, 5, 8, 8]
+
+
+def test_whir_rate_schedule_is_validated_at_every_round():
+    """An explicit schedule may pass the initial-domain check and still ask a
+    later round for an FFT domain the field has no roots of unity for.  Here
+    round 1 would need 2^(18 + 20 - 6) = 2^32 > 2^24 (KoalaBear)."""
+    import pytest
+
+    with pytest.raises(AssertionError, match="round 1"):
+        WHIR(_whir_config(log_inv_rates=[2, 20, 8, 8]))
+
+
+def test_whir_final_domain_is_validated():
+    """The final polynomial is sent over the full domain |L_M| with no fold, so
+    its rate is bounded on its own: 2^(6 + 19) = 2^25 > 2^24."""
+    import pytest
+
+    with pytest.raises(AssertionError, match="round 3"):
+        WHIR(_whir_config(log_inv_rates=[2, 5, 8, 19]))
+
+
+def test_whir_refuses_multilinear_batching():
+    """`multilinear_batching` is a BaseFold/FRI law; a WHIR section that sets
+    it is rejected instead of being silently modelled as affine batching."""
+    import tempfile
+    from pathlib import Path
+
+    import pytest
+
+    from soundcalc.zkvms.zkvm import zkVM
+
+    src = (Path(__file__).parent.parent / "soundcalc/zkvms/ziren/ziren.toml").read_text()
+    # The first `power_batching` line is core's WHIR section.
+    bad = src.replace("power_batching = true", "power_batching = true\nmultilinear_batching = true", 1)
+    assert bad != src
+    with tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False) as f:
+        f.write(bad)
+    with pytest.raises(ValueError, match="multilinear_batching"):
+        zkVM.load_from_toml(Path(f.name))

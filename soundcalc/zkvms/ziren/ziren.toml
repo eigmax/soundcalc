@@ -1,12 +1,26 @@
 # Ziren (ProjectZKM), MIPS32r2 zkVM.
 #
-# Machine census from `cargo run --release -p zkm-prover --bin soundcalc_census`
-# at the deployed revision; PCS parameters from crates/pcs (whir/jagged.rs
-# `core_whir_config`, basefold/config.rs `wrap_fri_config`, jagged_pcs.rs
-# stacking constants).
+# Provenance.  Every figure below describes ONE implementation:
+#   Ziren      d4d2f3ea  (branch feat/upgrade-plonky3)
+#   ziren-gpu  9118645    (the paired GPU prover; same PCS code, same schedule)
+#   transcript profile digest 5f0c3cd40898194906e28b051315082a68dfd7d93dc983564d000dc0266f206b
+#              — `zkm_pcs::profile::transcript_profile_digest_hex()`, one
+#              digest over every transcript-affecting parameter and event
+#              order, so a schedule change is visible as a digest change.
+# Machine census: `cargo run -r -p zkm-prover --bin soundcalc_census` at that
+# revision (trace_columns / num_constraints / num_lookups_M / num_columns_S).
+# PCS parameters: crates/pcs (whir/jagged.rs `core_whir_config`,
+# basefold/config.rs `wrap_fri_config`, jagged.rs pins and stacking
+# constants).  The stripe bounds are pinned by a unit test in zkm-core-machine
+# (`committed_stripe_bound_over_both_rounds`) that fails when the machine moves
+# without this file.
 #
 # Recursion topology: core -> compress (normalize + compose) -> shrink -> wrap.
 # shrink shares the compress machine and PCS, so it is folded into `compress`.
+#
+# The `total` a report prints is min over the components; the composed
+# (union-bound) level -log2(sum_i 2^-s_i) is a few bits lower whenever several
+# components sit near the minimum, as they do here.
 
 [zkevm]
 name = "Ziren"
@@ -17,28 +31,42 @@ hash_size_bits = 248
 # ---------------------------------------------------------------------------
 # core: the jagged/stacked PCS over WHIR.
 #
-# Stacking height 2^21 (DEFAULT_LOG_STACKING_HEIGHT) with batch 32; shards run
-# up to 2^22 rows (CORE_MAX_LOG_ROW_COUNT).  WHIR folds [3, 6, 6] from 21
-# variables at a starting rate of 2^-2, and re-commits round r at
-# log_inv_rate 2 + 3(r+1) rather than WHIR's k-1 recurrence, hence the explicit
-# `whir_log_inv_rates`.  124 / 88 / 85 queries with a 16-bit query PoW per
-# round and 2 OOD samples per committed round; no folding PoW.
-# Lookups are LogUp-GKR with a 16-bit grind.
+# Stacking height 2^21 (DEFAULT_LOG_STACKING_HEIGHT); shards run up to 2^22
+# rows (CORE_MAX_LOG_ROW_COUNT).  WHIR folds [3, 6, 6] from 21 variables at a
+# starting rate of 2^-2, and re-commits round r at log_inv_rate 2 + 3(r+1)
+# rather than WHIR's k-1 recurrence, hence the explicit `whir_log_inv_rates`.
+# 124 / 88 / 85 queries with a 16-bit query PoW per round and 2 OOD samples
+# per committed round; no folding PoW.  Lookups are LogUp-GKR with a 16-bit
+# grind.
+#
+# Batching.  One challenge lambda is drawn and every stripe of every committed
+# round is combined with 1, lambda, lambda^2, ... (whir/stacked.rs), so the
+# law is powers of a single challenge and the cardinality is
+#
+#     t = sum_r num_stripes[r] = sum_r ceil(area_r / 2^21)   (rounded to 8)
+#
+# over the two rounds a shard commits.  The interleave width (32) is a packing
+# constant and is not this quantity.  The ceiling the machine admits:
+#
+#   preprocessed: Program 2^22 x 14 + Byte 2^16 x 12 + Range 2^11 x 2
+#                 = 59,510,784 cells -> 32 stripes
+#   main:         ELEMENT_THRESHOLD = 460,000,000 cells (the shard area
+#                 fence) -> 224 stripes
+#   t = 32 + 224 = 256
 [[circuits]]
 protocol_family = "JAGGED"
 dense_pcs = "whir"
 name = "core"
 udr_only = true
 trace_length = 4194304 # 2^22
-trace_columns = 35651
+trace_columns = 35330
 dense_length = 2097152 # 2^21
 log_degree = 21
-dense_batch = 32
-num_constraints = 22681
+dense_batch = 256
+num_constraints = 22426
 air_max_degree = 3
 opening_points = 1
-power_batching = false
-multilinear_batching = true
+power_batching = true
 log_inv_rate = 2
 num_iterations = 3
 folding_factors = [3, 6, 6]
@@ -57,7 +85,7 @@ logup_type = "multivariate"
 rows_L = 4194304
 rows_T = 0
 num_columns_S = 105
-num_lookups_M = 21864
+num_lookups_M = 21711
 grinding_bits_lookup = 16
 multilinear_fingerprint = true
 
@@ -65,6 +93,13 @@ multilinear_fingerprint = true
 # ---------------------------------------------------------------------------
 # compress: the recursion machine (normalize / compose / deferred / shrink) on
 # the same WHIR schedule as core.  Largest band height 2^20 (ExtAlu).
+#
+# Batching: same law as core.  Here t is exact rather than bounded: a
+# recursion node commits both rounds under a pin class (jagged.rs
+# RECURSION_PIN_CLASSES; the prover panics past it) and the largest class is
+# reached (the root commits there by construction):
+#
+#     t = 2^26 / 2^21 + 2^26 / 2^21 = 32 + 32 = 64
 [[circuits]]
 protocol_family = "JAGGED"
 dense_pcs = "whir"
@@ -74,12 +109,11 @@ trace_length = 1048576 # 2^20
 trace_columns = 406
 dense_length = 2097152 # 2^21
 log_degree = 21
-dense_batch = 32
+dense_batch = 64
 num_constraints = 410
 air_max_degree = 3
 opening_points = 1
-power_batching = false
-multilinear_batching = true
+power_batching = true
 log_inv_rate = 2
 num_iterations = 3
 folding_factors = [3, 6, 6]
@@ -106,8 +140,19 @@ multilinear_fingerprint = true
 # ---------------------------------------------------------------------------
 # wrap: the outer machine over a BN254-Poseidon Merkle tree, jagged over
 # BaseFold at `wrap_fri_config()` = log_blowup 3, 94 queries, 22-bit query PoW,
-# folding arity 1 per round (one commitment per variable) and a 16-bit batching
-# grind (BATCH_GRINDING_BITS).  Constraint degree 9 (WRAP_DEGREE).
+# folding arity 1 per round (one commitment per variable).  Constraint
+# degree 9 (WRAP_DEGREE).
+#
+# Batching: BaseFold draws ceil(log2 t) independent coordinates after a 16-bit
+# grind (BATCH_GRINDING_BITS) and takes the multilinear (Lagrange) combination
+# of the stripe claims at that point, so `multilinear_batching` with
+# independent coefficients is the law.  The wrap proves one fixed program, so
+# its geometry is a constant of the revision; the value here is the ceiling
+# every chip at the largest band gives, (254 + 163) x 2^20 / 2^21 rounded to
+# 8 per round = 128 + 88 = 216, which overstates t and so understates the
+# batching term.
+# The LogUp-GKR grind is performed on this ring as on the inner ones: the
+# outer challenger grinds and checks the 16-bit witness.
 [[circuits]]
 protocol_family = "JAGGED"
 name = "wrap"
@@ -118,7 +163,7 @@ rho = 0.125
 trace_length = 1048576 # 2^20
 trace_columns = 254
 dense_length = 2097152 # 2^21
-dense_batch = 32
+dense_batch = 216
 num_constraints = 262
 air_max_degree = 9
 opening_points = 1

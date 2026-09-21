@@ -214,6 +214,15 @@ class zkVM:
                 grinding_query_phase=section.get("grinding_query_phase", 0),
             ))
         elif dense_pcs_kind == "whir":
+            # WHIR batches with one challenge (powers) or independent
+            # coefficients; it has no multilinear batching, so a config that
+            # asks for one would be modelled as something else.  Refuse it
+            # rather than let the key be read as accepted.
+            if section.get("multilinear_batching", False):
+                raise ValueError(
+                    f"circuit {section['name']!r}: multilinear_batching is not a WHIR "
+                    "batching law; set power_batching instead"
+                )
             dense_pcs = WHIR(WHIRConfig(
                 hash_size_bits=cls._hash_size_bits(config, section),
                 log_inv_rate=section["log_inv_rate"],
