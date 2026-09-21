@@ -10,7 +10,7 @@ How to read this report:
 
 | Metric | Value | Relevant circuit | Notes |
 | --- | --- | --- | --- |
-| Final bits of security | **94 bits** | [core](#core) | Regime: UDR |
+| Final bits of security | **100 bits** | [core](#core) | Regime: UDR |
 | Final proof size (worst case) | **963 KiB** | [wrap](#wrap) | |
 
 ## Circuits
@@ -41,7 +41,7 @@ How to read this report:
 
 | regime | total | logup-gkr | OOD(i=1) | OOD(i=2) | Shift(i=1) | Shift(i=2) | batching | fin | fold(i=0,s=1) | fold(i=0,s=2) | fold(i=0,s=3) | fold(i=1,s=1) | fold(i=1,s=2) | fold(i=1,s=3) | fold(i=1,s=4) | fold(i=1,s=5) | fold(i=1,s=6) | fold(i=2,s=1) | fold(i=2,s=2) | fold(i=2,s=3) | fold(i=2,s=4) | fold(i=2,s=5) | fold(i=2,s=6) | reduce to dense PCS | zerocheck |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| UDR | 94 | 100 | 213 | 225 | 100 | 100 | 94 | 100 | 103 | 104 | 105 | 103 | 104 | 105 | 106 | 107 | 108 | 105 | 106 | 107 | 108 | 109 | 110 | 116 | 109 |
+| UDR | 100 | 100 | 213 | 225 | 100 | 100 | 102 | 100 | 103 | 104 | 105 | 103 | 104 | 105 | 106 | 107 | 108 | 105 | 106 | 107 | 108 | 109 | 110 | 116 | 109 |
 
 
 ## compress
@@ -66,7 +66,7 @@ How to read this report:
 
 | regime | total | logup-gkr | OOD(i=1) | OOD(i=2) | Shift(i=1) | Shift(i=2) | batching | fin | fold(i=0,s=1) | fold(i=0,s=2) | fold(i=0,s=3) | fold(i=1,s=1) | fold(i=1,s=2) | fold(i=1,s=3) | fold(i=1,s=4) | fold(i=1,s=5) | fold(i=1,s=6) | fold(i=2,s=1) | fold(i=2,s=2) | fold(i=2,s=3) | fold(i=2,s=4) | fold(i=2,s=5) | fold(i=2,s=6) | reduce to dense PCS | zerocheck |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| UDR | 96 | 112 | 213 | 225 | 100 | 100 | 96 | 100 | 103 | 104 | 105 | 103 | 104 | 105 | 106 | 107 | 108 | 105 | 106 | 107 | 108 | 109 | 110 | 116 | 114 |
+| UDR | 100 | 112 | 213 | 225 | 100 | 100 | 104 | 100 | 103 | 104 | 105 | 103 | 104 | 105 | 106 | 107 | 108 | 105 | 106 | 107 | 108 | 109 | 110 | 116 | 114 |
 
 
 ## wrap

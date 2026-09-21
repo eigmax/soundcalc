@@ -1,9 +1,9 @@
 # Ziren (ProjectZKM), MIPS32r2 zkVM.
 #
 # Provenance.  Every figure below describes ONE implementation:
-#   Ziren      d4d2f3ea  (branch feat/upgrade-plonky3)
-#   ziren-gpu  9118645    (the paired GPU prover; same PCS code, same schedule)
-#   transcript profile digest 5f0c3cd40898194906e28b051315082a68dfd7d93dc983564d000dc0266f206b
+#   Ziren      1e26869b  (branch feat/upgrade-plonky3)
+#   ziren-gpu  df44240    (the paired GPU prover; same PCS code, same schedule)
+#   transcript profile digest 58751d5e36e24bc864d5c9530a16702758ae8f910c4d89653121b0356a0e887f
 #              — `zkm_pcs::profile::transcript_profile_digest_hex()`, one
 #              digest over every transcript-affecting parameter and event
 #              order, so a schedule change is visible as a digest change.
@@ -36,8 +36,9 @@ hash_size_bits = 248
 # starting rate of 2^-2, and re-commits round r at log_inv_rate 2 + 3(r+1)
 # rather than WHIR's k-1 recurrence, hence the explicit `whir_log_inv_rates`.
 # 124 / 88 / 85 queries with a 16-bit query PoW per round and 2 OOD samples
-# per committed round; no folding PoW.  Lookups are LogUp-GKR with a 16-bit
-# grind.
+# per committed round; no folding PoW; an 8-bit grind between the absorbed
+# stripe claims and the batching challenge.  Lookups are LogUp-GKR with a
+# 16-bit grind.
 #
 # Batching.  One challenge lambda is drawn and every stripe of every committed
 # round is combined with 1, lambda, lambda^2, ... (whir/stacked.rs), so the
@@ -74,7 +75,7 @@ whir_log_inv_rates = [2, 5, 8, 8]
 constraint_degree = 3
 num_queries = [124, 88, 85]
 num_ood_samples = [2, 2]
-grinding_batching_phase = 0
+grinding_batching_phase = 8
 grinding_bits_folding = [[0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]]
 grinding_bits_queries = [16, 16, 16]
 grinding_bits_ood = [0, 0]
@@ -121,7 +122,7 @@ whir_log_inv_rates = [2, 5, 8, 8]
 constraint_degree = 3
 num_queries = [124, 88, 85]
 num_ood_samples = [2, 2]
-grinding_batching_phase = 0
+grinding_batching_phase = 8
 grinding_bits_folding = [[0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]]
 grinding_bits_queries = [16, 16, 16]
 grinding_bits_ood = [0, 0]
