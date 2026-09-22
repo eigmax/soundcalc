@@ -1,8 +1,8 @@
 # Ziren (ProjectZKM), MIPS32r2 zkVM.
 #
 # Provenance.  Every figure below describes ONE implementation:
-#   Ziren      1e26869b  (branch feat/upgrade-plonky3)
-#   ziren-gpu  df44240    (the paired GPU prover; same PCS code, same schedule)
+#   Ziren      d5719b16  (branch feat/upgrade-plonky3)
+#   ziren-gpu  35b8e75    (the paired GPU prover; same PCS code, same schedule)
 #   transcript profile digest 58751d5e36e24bc864d5c9530a16702758ae8f910c4d89653121b0356a0e887f
 #              — `zkm_pcs::profile::transcript_profile_digest_hex()`, one
 #              digest over every transcript-affecting parameter and event
@@ -47,24 +47,28 @@ hash_size_bits = 248
 #     t = sum_r num_stripes[r] = sum_r ceil(area_r / 2^21)   (rounded to 8)
 #
 # over the two rounds a shard commits.  The interleave width (32) is a packing
-# constant and is not this quantity.  The ceiling the machine admits:
+# constant and is not this quantity.  The bound has to hold against the
+# verifier, not the honest prover:
 #
-#   preprocessed: Program 2^22 x 14 + Byte 2^16 x 12 + Range 2^11 x 2
-#                 = 59,510,784 cells -> 32 stripes
-#   main:         ELEMENT_THRESHOLD = 460,000,000 cells (the shard area
-#                 fence) -> 224 stripes
-#   t = 32 + 224 = 256
+#   preprocessed: the verifying key's round, at most Program 2^22 x 14 +
+#                 Byte 2^16 x 12 + Range 2^11 x 2 = 59,510,784 cells
+#                 -> 32 stripes
+#   main:         proof-controlled; the verifier admits any area strictly
+#                 below 2^MAX_ROUND_LOG_AREA = 2^30 cells -> 512 stripes
+#                 (the executor's 460,000,000-cell fence, 224 stripes, is
+#                 only what an honest prover uses)
+#   t = 32 + 512 = 544
 [[circuits]]
 protocol_family = "JAGGED"
 dense_pcs = "whir"
 name = "core"
 udr_only = true
 trace_length = 4194304 # 2^22
-trace_columns = 35330
+trace_columns = 37096
 dense_length = 2097152 # 2^21
 log_degree = 21
-dense_batch = 256
-num_constraints = 22426
+dense_batch = 544
+num_constraints = 25075
 air_max_degree = 3
 opening_points = 1
 power_batching = true
@@ -86,7 +90,7 @@ logup_type = "multivariate"
 rows_L = 4194304
 rows_T = 0
 num_columns_S = 105
-num_lookups_M = 21711
+num_lookups_M = 22166
 grinding_bits_lookup = 16
 multilinear_fingerprint = true
 
