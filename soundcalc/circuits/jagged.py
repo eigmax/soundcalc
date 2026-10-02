@@ -9,6 +9,7 @@ from soundcalc.common.utils import get_bits_of_security_from_error
 from soundcalc.lookups.logup import LogUp
 from soundcalc.pcs.pcs import PCS
 from soundcalc.pcs.fri import FRI
+from soundcalc.proxgaps.johnson_bound import JohnsonBoundRegime
 from soundcalc.proxgaps.proxgaps_regime import ProximityGapsRegime
 from soundcalc.proxgaps.unique_decoding import UniqueDecodingRegime
 
@@ -184,6 +185,12 @@ class JaggedCircuitConfig:
     num_constraints: int
     AIR_max_degree: int
     lookups: list[LogUp] | None = None
+    # "unique" (default) or "list": the proximity regime the dense PCS is
+    # analysed in.  The jagged reduction and the zerocheck are sumcheck
+    # errors and do not depend on it.
+    explicit_regime: str | None = None
+    # The Johnson-bound multiplicity m when explicit_regime is "list".
+    explicit_m: int | None = None
 
 
 class JaggedCircuit(Circuit):
@@ -193,7 +200,8 @@ class JaggedCircuit(Circuit):
     Jagged adds a sumcheck-based reduction layer on top of a dense PCS, plus a
     multilinear zerocheck for constraint satisfaction.  The dense scheme is FRI
     (Basefold) for SP1 and WHIR for Ziren; the reduction analysis itself is the
-    same either way and is only supported in the unique-decoding regime.
+    same either way.  The dense PCS is analysed in the unique-decoding regime
+    unless the config names the list-decoding (Johnson-bound) regime.
     """
 
     def __init__(self, config: JaggedCircuitConfig):
@@ -209,13 +217,22 @@ class JaggedCircuit(Circuit):
         self.num_constraints = config.num_constraints
         self.AIR_max_degree = config.AIR_max_degree
         self._lookups = config.lookups or []
+        if config.explicit_regime in (None, "unique"):
+            self._regime = UniqueDecodingRegime(config.field)
+        elif config.explicit_regime == "list":
+            self._regime = JohnsonBoundRegime(config.field, explicit_m=config.explicit_m)
+        else:
+            raise ValueError(
+                f"circuit {config.name!r}: explicit_regime must be \"unique\" or \"list\", "
+                f"got {config.explicit_regime!r}"
+            )
 
     def get_lookups(self) -> list[LogUp]:
         """Returns the list of lookups for this circuit."""
         return self._lookups
 
     def get_security_levels(self) -> dict[str, dict[str, float]]:
-        regime = UniqueDecodingRegime(self.field)
+        regime = self._regime
         pcs_levels = self.pcs.get_pcs_security_levels(regime)
 
         # Multilinear zerocheck error

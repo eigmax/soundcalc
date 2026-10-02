@@ -188,12 +188,8 @@ class zkVM:
     @classmethod
     def _build_jagged_circuit_from_section(cls, config: dict, section: dict) -> JaggedCircuit:
         field = cls._field(config, section)
-        # Jagged currently only supports the unique-decoding regime.
         explicit_regime = section.get("explicit_regime")
-        if explicit_regime is not None and explicit_regime != "unique":
-            raise ValueError(
-                f"Jagged only supports explicit_regime=\"unique\", got {explicit_regime!r}"
-            )
+        explicit_m = section.get("explicit_m") if explicit_regime == "list" else None
         # The dense PCS under the jagged reduction: FRI (Basefold) by default,
         # WHIR when the config asks for it.
         dense_pcs_kind = section.get("dense_pcs", "fri").lower()
@@ -255,6 +251,8 @@ class zkVM:
             num_constraints=section["num_constraints"],
             AIR_max_degree=section["air_max_degree"],
             lookups=lookups if lookups else None,
+            explicit_regime=explicit_regime,
+            explicit_m=explicit_m,
         ))
 
     @classmethod
