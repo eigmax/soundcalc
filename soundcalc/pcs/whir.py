@@ -58,7 +58,6 @@ class WHIRConfig:
     # This parameter sets only the initial rate ρ.
     log_inv_rate: int
 
-
     # The total number of WHIR iterations, denoted by $M$ in the paper.
     #
     # This parameter dictates how many reduction steps are performed to reduce
@@ -306,7 +305,7 @@ class WHIRConfig:
     # WHIR's own recurrence is $\mu_{i+1} = \mu_i + (k_i - 1)$: the domain is
     # kept and the degree drops by $2^{k_i}$.  An implementation is free to
     # commit each round at a different rate than that -- Ziren, for instance,
-    # re-commits at $\mu_{i+1} = 2 + 3(i+1)$ -- and the query phase must then be
+    # re-commits at $\mu_{i+1} = \mu_0 + 3(i+1)$ -- and the query phase must then be
     # analysed at the rates the prover actually used.  Leave it unset for the
     # standard recurrence.
     log_inv_rates: list[int] | None = None
