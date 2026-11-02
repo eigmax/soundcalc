@@ -9,6 +9,7 @@ from soundcalc.common.utils import get_bits_of_security_from_error
 from soundcalc.lookups.logup import LogUp
 from soundcalc.pcs.pcs import PCS
 from soundcalc.pcs.fri import FRI
+from soundcalc.pcs.whir import WHIR
 from soundcalc.proxgaps.johnson_bound import JohnsonBoundRegime
 from soundcalc.proxgaps.proxgaps_regime import ProximityGapsRegime
 from soundcalc.proxgaps.unique_decoding import UniqueDecodingRegime
@@ -28,7 +29,7 @@ class JaggedConfig:
     Configuration for Jagged PCS over a dense PCS (FRI/Basefold or WHIR).
     """
     # The configuration for the dense PCS
-    dense_pcs: PCS
+    dense_pcs: FRI | WHIR
 
     # The maximum height of the trace.
     trace_length: int
@@ -178,7 +179,7 @@ class JaggedPCS(PCS):
 class JaggedCircuitConfig:
     """Configuration for a JaggedCircuit."""
     name: str
-    dense_pcs: PCS
+    dense_pcs: FRI | WHIR
     field: FieldParams
     trace_length: int
     trace_width: int
